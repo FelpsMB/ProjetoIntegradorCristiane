@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Documentos Ambientais</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1><i class="ti ti-file-certificate" style="color:var(--verde);"></i> Documentos Ambientais</h1>
+        <p class="sub">MTR (Manifesto de Transporte) e CDF (Certificado de Destinacao Final)</p>
+      </div>
+      <button class="btn" onclick="novo()"><i class="ti ti-plus"></i> Emitir documento</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>#</th><th>Tipo</th><th>Numero</th><th>OS</th><th>Data emissao</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <h2 id="modal-titulo">Emitir documento</h2>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="campo"><label>Ordem de Servico *</label><select id="id_os" required></select></div>
+        <div class="campo"><label>Tipo</label>
+          <select id="tipo"><option value="MTR">MTR - Manifesto de Transporte</option><option value="CDF">CDF - Certificado de Destinacao</option></select>
+        </div>
+        <div class="campo"><label>Numero do documento</label><input id="numero_mtr" placeholder="MTR-2026-0001"></div>
+        <div class="campo"><label>Data de emissao</label><input id="data_emissao" type="date"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-ghost" onclick="fecharModal('modal')">Cancelar</button>
+          <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (exigirLogin()) { montarTopbar('documentos.html'); iniciar(); }
+
+    async function iniciar() { await carregarOS(); carregar(); }
+
+    async function carregarOS() {
+      const ordens = await apiGet('/api/ordens');
+      document.getElementById('id_os').innerHTML =
+        '<option value="">Selecione...</option>' +
+        ordens.map((o) => `<option value="${o.id_os}">OS #${String(o.id_os).padStart(4, '0')} - ${esc(o.cliente_nome || 'sem cliente')}</option>`).join('');
+    }
+
+    async function carregar() {
+      try {
+        const lista = await apiGet('/api/documentos');
+        document.getElementById('tabela').innerHTML = lista.length ? lista.map((d) => `
+          <tr>
+            <td>${d.id_documento}</td>
+            <td><span class="badge ${d.tipo === 'CDF' ? 'concluida' : 'em-rota'}">${esc(d.tipo)}</span></td>
+            <td><b>${esc(d.numero_mtr || '-')}</b></td>
+            <td>#${String(d.id_os).padStart(4, '0')}</td>
+            <td>${d.data_emissao ? new Date(d.data_emissao).toLocaleDateString('pt-br') : '-'}</td>
+            <td class="acoes">
+              <button class="btn btn-ghost btn-mini" onclick='editar(${JSON.stringify(d)})'><i class="ti ti-pencil"></i></button>
+              <button class="btn-perigo btn-mini" onclick="excluir(${d.id_documento})"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="6" class="vazio">Nenhum documento emitido.</td></tr>';
+      } catch (e) { aviso(e.message, true); }
+    }
+
+    function novo() {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('data_emissao').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('modal-titulo').textContent = 'Emitir documento';
+      abrirModal('modal');
+    }
+    function editar(d) {
+      document.getElementById('id').value = d.id_documento;
+      document.getElementById('id_os').value = d.id_os || '';
+      document.getElementById('tipo').value = d.tipo || 'MTR';
+      document.getElementById('numero_mtr').value = d.numero_mtr || '';
+      document.getElementById('data_emissao').value = d.data_emissao ? String(d.data_emissao).slice(0, 10) : '';
+      document.getElementById('modal-titulo').textContent = 'Editar documento';
+      abrirModal('modal');
+    }
+    async function excluir(id) {
+      if (!confirm('Excluir este documento?')) return;
+      try { await apiDel('/api/documentos/' + id); aviso('Documento excluido.'); carregar(); }
+      catch (e) { aviso(e.message, true); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const dados = {
+        id_os: document.getElementById('id_os').value,
+        tipo: document.getElementById('tipo').value,
+        numero_mtr: document.getElementById('numero_mtr').value,
+        data_emissao: document.getElementById('data_emissao').value,
+      };
+      try {
+        if (id) await apiPut('/api/documentos/' + id, dados);
+        else await apiPost('/api/documentos', dados);
+        fecharModal('modal'); aviso('Salvo com sucesso!'); carregar();
+      } catch (e) { aviso(e.message, true); }
+    });
+  </script>
+</body>
+</html>

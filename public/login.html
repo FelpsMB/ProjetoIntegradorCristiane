@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Login</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .eco-wrap { background: var(--verde-escuro); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .eco-card { background: #fff; border-radius: var(--border-radius-lg); border: 1px solid var(--color-border-tertiary); padding: 2rem 2.25rem; width: 360px; }
+    .eco-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 1.75rem; }
+    .eco-logo-icon { width: 40px; height: 40px; background: var(--verde); border-radius: var(--border-radius-md); display: flex; align-items: center; justify-content: center; }
+    .eco-label { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 6px; display: block; }
+    .eco-input-wrap { position: relative; margin-bottom: 1rem; }
+    .eco-input-wrap i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--color-text-secondary); }
+    .eco-input-wrap input { padding-left: 34px; width: 100%; }
+    .eco-btn { width: 100%; padding: 10px; margin-top: 0.5rem; justify-content: center; }
+    .eco-divider { border: none; border-top: 1px solid var(--color-border-tertiary); margin: 1.25rem 0; }
+    .eco-hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 1rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="eco-wrap">
+    <div class="eco-card">
+      <div class="eco-logo">
+        <div class="eco-logo-icon"><i class="ti ti-leaf" style="font-size:22px; color:var(--verde-claro);"></i></div>
+        <div>
+          <p style="font-size:18px; font-weight:600; margin:0;">EcoLogix</p>
+          <p style="font-size:11px; color:var(--color-text-secondary); margin:0;">Gestao de Residuos Solidos</p>
+        </div>
+      </div>
+
+      <form id="form-login">
+        <label class="eco-label" for="email">E-mail</label>
+        <div class="eco-input-wrap">
+          <i class="ti ti-mail"></i>
+          <input type="email" id="email" placeholder="seu@email.com" required>
+        </div>
+
+        <label class="eco-label" for="senha">Senha</label>
+        <div class="eco-input-wrap">
+          <i class="ti ti-lock"></i>
+          <input type="password" id="senha" placeholder="********" required>
+        </div>
+
+        <button class="btn eco-btn" type="submit"><i class="ti ti-login"></i> Entrar</button>
+      </form>
+
+      <hr class="eco-divider">
+      <p style="text-align:center; font-size:13px; color:var(--color-text-secondary); margin:0;">
+        Nao tem conta? <a href="cadastro.html" style="color:var(--verde); font-weight:500;">Cadastre-se</a>
+      </p>
+      <p class="eco-hint"><i class="ti ti-shield-check"></i> Acesso seguro &middot; GreenCycle &copy; 2026</p>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    // Se ja estiver logado, vai direto pro painel.
+    if (usuarioLogado()) location.href = 'dashboard.html';
+
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const r = await apiPost('/api/login', {
+          email: document.getElementById('email').value,
+          senha: document.getElementById('senha').value,
+        });
+        localStorage.setItem('ecologix_usuario', JSON.stringify(r.usuario));
+        location.href = 'dashboard.html';
+      } catch (err) {
+        aviso(err.message, true);
+      }
+    });
+  </script>
+</body>
+</html>

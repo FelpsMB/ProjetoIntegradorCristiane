@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Ordens de Servico</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1><i class="ti ti-file-text" style="color:var(--verde);"></i> Ordens de Servico</h1>
+        <p class="sub">Solicitacoes de coleta de residuos</p>
+      </div>
+      <button class="btn" onclick="novo()"><i class="ti ti-plus"></i> Nova OS</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>OS</th><th>Cliente</th><th>Motorista</th><th>Data</th><th>Status</th><th>Peso (kg)</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <h2 id="modal-titulo">Nova ordem de servico</h2>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="campo"><label>Cliente *</label><select id="id_cliente" required></select></div>
+        <div class="campo"><label>Motorista</label><select id="id_motorista"><option value="">(a definir)</option></select></div>
+        <div class="campo"><label>Data da solicitacao</label><input id="data_solicitacao" type="date"></div>
+        <div class="campo"><label>Status</label>
+          <select id="status">
+            <option>Pendente</option><option>Em rota</option><option>Concluida</option><option>Cancelada</option>
+          </select>
+        </div>
+        <div class="campo"><label>Peso total (kg)</label><input id="peso_total" type="number" step="0.01" value="0"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-ghost" onclick="fecharModal('modal')">Cancelar</button>
+          <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (exigirLogin()) { montarTopbar('ordens.html'); iniciar(); }
+
+    async function iniciar() {
+      await carregarSelects();
+      carregar();
+    }
+
+    async function carregarSelects() {
+      const [clientes, motoristas] = await Promise.all([apiGet('/api/clientes'), apiGet('/api/motoristas')]);
+      document.getElementById('id_cliente').innerHTML =
+        '<option value="">Selecione...</option>' +
+        clientes.map((c) => `<option value="${c.id_cliente}">${esc(c.nome)}</option>`).join('');
+      document.getElementById('id_motorista').innerHTML =
+        '<option value="">(a definir)</option>' +
+        motoristas.map((m) => `<option value="${m.id_motorista}">${esc(m.nome)}</option>`).join('');
+    }
+
+    async function carregar() {
+      try {
+        const lista = await apiGet('/api/ordens');
+        document.getElementById('tabela').innerHTML = lista.length ? lista.map((o) => `
+          <tr>
+            <td><b>#${String(o.id_os).padStart(4, '0')}</b></td>
+            <td>${esc(o.cliente_nome || '-')}</td>
+            <td>${esc(o.motorista_nome || '-')}</td>
+            <td>${o.data_solicitacao ? new Date(o.data_solicitacao).toLocaleDateString('pt-br') : '-'}</td>
+            <td><span class="badge ${classeStatus(o.status)}">${esc(o.status)}</span></td>
+            <td>${Number(o.peso_total || 0).toLocaleString('pt-br')}</td>
+            <td class="acoes">
+              <button class="btn btn-ghost btn-mini" onclick='editar(${JSON.stringify(o)})'><i class="ti ti-pencil"></i></button>
+              <button class="btn-perigo btn-mini" onclick="excluir(${o.id_os})"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="7" class="vazio">Nenhuma ordem cadastrada.</td></tr>';
+      } catch (e) { aviso(e.message, true); }
+    }
+
+    function novo() {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('data_solicitacao').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('modal-titulo').textContent = 'Nova ordem de servico';
+      abrirModal('modal');
+    }
+    function editar(o) {
+      document.getElementById('id').value = o.id_os;
+      document.getElementById('id_cliente').value = o.id_cliente || '';
+      document.getElementById('id_motorista').value = o.id_motorista || '';
+      document.getElementById('data_solicitacao').value = o.data_solicitacao ? String(o.data_solicitacao).slice(0, 10) : '';
+      document.getElementById('status').value = o.status || 'Pendente';
+      document.getElementById('peso_total').value = o.peso_total || 0;
+      document.getElementById('modal-titulo').textContent = 'Editar OS #' + String(o.id_os).padStart(4, '0');
+      abrirModal('modal');
+    }
+    async function excluir(id) {
+      if (!confirm('Excluir esta ordem de servico?')) return;
+      try { await apiDel('/api/ordens/' + id); aviso('OS excluida.'); carregar(); }
+      catch (e) { aviso(e.message, true); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const dados = {
+        id_cliente: document.getElementById('id_cliente').value,
+        id_motorista: document.getElementById('id_motorista').value,
+        data_solicitacao: document.getElementById('data_solicitacao').value,
+        status: document.getElementById('status').value,
+        peso_total: document.getElementById('peso_total').value,
+      };
+      try {
+        if (id) await apiPut('/api/ordens/' + id, dados);
+        else await apiPost('/api/ordens', dados);
+        fecharModal('modal'); aviso('Salvo com sucesso!'); carregar();
+      } catch (e) { aviso(e.message, true); }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "ecologix",
+  "version": "1.0.0",
+  "description": "EcoLogix - Sistema de Gestao Inteligente de Residuos Solidos (GreenCycle)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "db": "node setup-banco.js"
+  },
+  "author": "Grupo EcoLogix",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0"
+  }
+}

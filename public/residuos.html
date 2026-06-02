@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Residuos</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1><i class="ti ti-recycle" style="color:var(--verde);"></i> Residuos</h1>
+        <p class="sub">Materiais coletados em cada ordem de servico</p>
+      </div>
+      <button class="btn" onclick="novo()"><i class="ti ti-plus"></i> Adicionar residuo</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>#</th><th>OS</th><th>Material</th><th>Peso estimado (kg)</th><th>Peso real (kg)</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <h2 id="modal-titulo">Novo residuo</h2>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="campo"><label>Ordem de Servico *</label><select id="id_os" required></select></div>
+        <div class="campo"><label>Tipo de material</label>
+          <select id="tipo_material">
+            <option>Plastico</option><option>Papel</option><option>Metal</option>
+            <option>Vidro</option><option>Organico</option><option>Eletronico</option>
+          </select>
+        </div>
+        <div class="campo"><label>Peso estimado (kg)</label><input id="peso_estimado" type="number" step="0.01"></div>
+        <div class="campo"><label>Peso real (kg)</label><input id="peso_real" type="number" step="0.01"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-ghost" onclick="fecharModal('modal')">Cancelar</button>
+          <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (exigirLogin()) { montarTopbar('residuos.html'); iniciar(); }
+
+    async function iniciar() { await carregarOS(); carregar(); }
+
+    async function carregarOS() {
+      const ordens = await apiGet('/api/ordens');
+      document.getElementById('id_os').innerHTML =
+        '<option value="">Selecione...</option>' +
+        ordens.map((o) => `<option value="${o.id_os}">OS #${String(o.id_os).padStart(4, '0')} - ${esc(o.cliente_nome || 'sem cliente')}</option>`).join('');
+    }
+
+    async function carregar() {
+      try {
+        const lista = await apiGet('/api/residuos');
+        document.getElementById('tabela').innerHTML = lista.length ? lista.map((r) => `
+          <tr>
+            <td>${r.id_residuo}</td>
+            <td>#${String(r.id_os).padStart(4, '0')}</td>
+            <td><b>${esc(r.tipo_material || '-')}</b></td>
+            <td>${r.peso_estimado != null ? Number(r.peso_estimado).toLocaleString('pt-br') : '-'}</td>
+            <td>${r.peso_real != null ? Number(r.peso_real).toLocaleString('pt-br') : '-'}</td>
+            <td class="acoes">
+              <button class="btn btn-ghost btn-mini" onclick='editar(${JSON.stringify(r)})'><i class="ti ti-pencil"></i></button>
+              <button class="btn-perigo btn-mini" onclick="excluir(${r.id_residuo})"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="6" class="vazio">Nenhum residuo cadastrado.</td></tr>';
+      } catch (e) { aviso(e.message, true); }
+    }
+
+    function novo() {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('modal-titulo').textContent = 'Novo residuo';
+      abrirModal('modal');
+    }
+    function editar(r) {
+      document.getElementById('id').value = r.id_residuo;
+      document.getElementById('id_os').value = r.id_os || '';
+      document.getElementById('tipo_material').value = r.tipo_material || 'Plastico';
+      document.getElementById('peso_estimado').value = r.peso_estimado ?? '';
+      document.getElementById('peso_real').value = r.peso_real ?? '';
+      document.getElementById('modal-titulo').textContent = 'Editar residuo';
+      abrirModal('modal');
+    }
+    async function excluir(id) {
+      if (!confirm('Excluir este residuo?')) return;
+      try { await apiDel('/api/residuos/' + id); aviso('Residuo excluido.'); carregar(); }
+      catch (e) { aviso(e.message, true); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const dados = {
+        id_os: document.getElementById('id_os').value,
+        tipo_material: document.getElementById('tipo_material').value,
+        peso_estimado: document.getElementById('peso_estimado').value,
+        peso_real: document.getElementById('peso_real').value,
+      };
+      try {
+        if (id) await apiPut('/api/residuos/' + id, dados);
+        else await apiPost('/api/residuos', dados);
+        fecharModal('modal'); aviso('Salvo com sucesso!'); carregar();
+      } catch (e) { aviso(e.message, true); }
+    });
+  </script>
+</body>
+</html>

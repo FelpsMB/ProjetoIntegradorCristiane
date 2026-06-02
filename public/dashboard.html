@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Painel</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1 id="saudacao">Bom dia 👋</h1>
+        <p class="sub" id="data-hoje">GreenCycle Solucoes Ambientais</p>
+      </div>
+      <a class="btn" href="ordens.html"><i class="ti ti-plus"></i> Nova Ordem de Servico</a>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="cols">
+      <div class="painel">
+        <h3><i class="ti ti-list-details" style="color:var(--verde);"></i> Ordens de servico recentes</h3>
+        <div id="ordens-recentes"></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="painel">
+          <h3><i class="ti ti-chart-bar" style="color:var(--verde);"></i> Residuos por categoria (kg)</h3>
+          <div id="categorias"></div>
+        </div>
+        <div class="painel">
+          <h3><i class="ti ti-map-pin" style="color:var(--verde);"></i> Motoristas</h3>
+          <div id="motoristas"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (!exigirLogin()) {} else {
+      montarTopbar('dashboard.html');
+
+      const u = usuarioLogado();
+      const h = new Date().getHours();
+      const saud = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+      document.getElementById('saudacao').textContent = `${saud}, ${u.nome} 👋`;
+      document.getElementById('data-hoje').textContent =
+        new Date().toLocaleDateString('pt-br', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) +
+        ' · GreenCycle Solucoes Ambientais';
+
+      const cores = ['var(--verde)', 'var(--verde-claro)', '#F4A023', '#185FA5', '#A32D2D'];
+
+      carregar();
+      async function carregar() {
+        try {
+          const d = await apiGet('/api/dashboard');
+
+          document.getElementById('metrics').innerHTML = `
+            ${metric('ti-file-text', 'OS abertas', d.osAbertas)}
+            ${metric('ti-truck', 'Em rota hoje', d.emRota, d.motoristasAtivos + ' motorista(s) ativo(s)')}
+            ${metric('ti-weight', 'Kg coletados', Number(d.kgColetados).toLocaleString('pt-br'))}
+            ${metric('ti-file-certificate', 'Documentos emitidos', d.mtrEmitidos)}`;
+
+          document.getElementById('ordens-recentes').innerHTML = d.ordensRecentes.length
+            ? d.ordensRecentes.map((o) => `
+              <div class="os-row">
+                <div>
+                  <div style="font-weight:600;">OS #${String(o.id_os).padStart(4, '0')}</div>
+                  <div style="font-size:12px; color:var(--color-text-secondary);">${esc(o.cliente || 'Sem cliente')} · ${Number(o.peso_total || 0)} kg</div>
+                </div>
+                <span class="badge ${classeStatus(o.status)}">${esc(o.status)}</span>
+              </div>`).join('')
+            : '<p class="vazio">Nenhuma ordem ainda.</p>';
+
+          const max = Math.max(1, ...d.residuosPorCategoria.map((c) => Number(c.total)));
+          document.getElementById('categorias').innerHTML = d.residuosPorCategoria.length
+            ? d.residuosPorCategoria.map((c, i) => `
+              <div class="bar-row">
+                <span class="bar-label">${esc(c.tipo_material)}</span>
+                <div class="bar-bg"><div class="bar-fill" style="width:${(c.total / max) * 100}%; background:${cores[i % cores.length]};"></div></div>
+                <span class="bar-val">${Number(c.total).toLocaleString('pt-br')}</span>
+              </div>`).join('')
+            : '<p class="vazio">Sem dados.</p>';
+
+          document.getElementById('motoristas').innerHTML = d.motoristas.length
+            ? d.motoristas.map((m) => `
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <div class="avatar" style="background:var(--verde-pastel); color:var(--verde);">${esc((m.nome || 'M').slice(0, 2).toUpperCase())}</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px; font-weight:500;">${esc(m.nome)}</div>
+                  <div style="font-size:11px; color:var(--color-text-secondary);">${m.os_ativa ? 'Em rota · OS #' + String(m.os_ativa).padStart(4, '0') : 'Disponivel'}</div>
+                </div>
+                <span class="badge ${m.os_ativa ? 'em-rota' : 'pendente'}">${m.os_ativa ? 'Ativo' : 'Livre'}</span>
+              </div>`).join('')
+            : '<p class="vazio">Sem motoristas.</p>';
+        } catch (err) {
+          aviso(err.message, true);
+        }
+      }
+
+      function metric(icone, label, valor, sub) {
+        return `<div class="metric">
+          <div class="label"><i class="ti ${icone}"></i> ${label}</div>
+          <div class="val">${valor}</div>
+          ${sub ? `<div style="font-size:11px; color:var(--verde); margin-top:3px;">${sub}</div>` : ''}
+        </div>`;
+      }
+    }
+  </script>
+</body>
+</html>

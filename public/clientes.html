@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Clientes</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1><i class="ti ti-building-store" style="color:var(--verde);"></i> Clientes</h1>
+        <p class="sub">Empresas e condominios atendidos pela GreenCycle</p>
+      </div>
+      <button class="btn" onclick="novo()"><i class="ti ti-plus"></i> Adicionar cliente</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>#</th><th>Nome</th><th>CNPJ/CPF</th><th>E-mail</th><th>Endereco</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Janela do formulario -->
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <h2 id="modal-titulo">Novo cliente</h2>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="campo"><label>Nome *</label><input id="nome" required></div>
+        <div class="campo"><label>CNPJ / CPF</label><input id="cnpj"></div>
+        <div class="campo"><label>E-mail</label><input id="email" type="email"></div>
+        <div class="campo"><label>Endereco</label><input id="endereco"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-ghost" onclick="fecharModal('modal')">Cancelar</button>
+          <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (exigirLogin()) {
+      montarTopbar('clientes.html');
+      carregar();
+    }
+
+    async function carregar() {
+      try {
+        const lista = await apiGet('/api/clientes');
+        document.getElementById('tabela').innerHTML = lista.length ? lista.map((c) => `
+          <tr>
+            <td>${c.id_cliente}</td>
+            <td><b>${esc(c.nome)}</b></td>
+            <td>${esc(c.cnpj || '-')}</td>
+            <td>${esc(c.email || '-')}</td>
+            <td>${esc(c.endereco || '-')}</td>
+            <td class="acoes">
+              <button class="btn btn-ghost btn-mini" onclick='editar(${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>
+              <button class="btn-perigo btn-mini" onclick="excluir(${c.id_cliente})"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="6" class="vazio">Nenhum cliente cadastrado.</td></tr>';
+      } catch (e) { aviso(e.message, true); }
+    }
+
+    function novo() {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('modal-titulo').textContent = 'Novo cliente';
+      abrirModal('modal');
+    }
+    function editar(c) {
+      document.getElementById('id').value = c.id_cliente;
+      document.getElementById('nome').value = c.nome || '';
+      document.getElementById('cnpj').value = c.cnpj || '';
+      document.getElementById('email').value = c.email || '';
+      document.getElementById('endereco').value = c.endereco || '';
+      document.getElementById('modal-titulo').textContent = 'Editar cliente';
+      abrirModal('modal');
+    }
+    async function excluir(id) {
+      if (!confirm('Excluir este cliente?')) return;
+      try { await apiDel('/api/clientes/' + id); aviso('Cliente excluido.'); carregar(); }
+      catch (e) { aviso(e.message, true); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const dados = {
+        nome: document.getElementById('nome').value,
+        cnpj: document.getElementById('cnpj').value,
+        email: document.getElementById('email').value,
+        endereco: document.getElementById('endereco').value,
+      };
+      try {
+        if (id) await apiPut('/api/clientes/' + id, dados);
+        else await apiPost('/api/clientes', dados);
+        fecharModal('modal'); aviso('Salvo com sucesso!'); carregar();
+      } catch (e) { aviso(e.message, true); }
+    });
+  </script>
+</body>
+</html>

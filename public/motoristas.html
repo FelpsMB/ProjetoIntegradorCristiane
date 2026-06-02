@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Motoristas</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1><i class="ti ti-truck" style="color:var(--verde);"></i> Motoristas</h1>
+        <p class="sub">Equipe de coleta e transporte</p>
+      </div>
+      <button class="btn" onclick="novo()"><i class="ti ti-plus"></i> Adicionar motorista</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>#</th><th>Nome</th><th>Licenca (CNH)</th><th>Veiculo</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <h2 id="modal-titulo">Novo motorista</h2>
+      <form id="form">
+        <input type="hidden" id="id">
+        <div class="campo"><label>Nome *</label><input id="nome" required></div>
+        <div class="campo"><label>Licenca (CNH)</label><input id="licenca"></div>
+        <div class="campo"><label>Veiculo</label>
+          <select id="placa_veiculo"><option value="">(nenhum)</option></select>
+        </div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-ghost" onclick="fecharModal('modal')">Cancelar</button>
+          <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (exigirLogin()) { montarTopbar('motoristas.html'); iniciar(); }
+
+    async function iniciar() {
+      await carregarVeiculos();
+      carregar();
+    }
+
+    async function carregarVeiculos() {
+      const veiculos = await apiGet('/api/veiculos');
+      const sel = document.getElementById('placa_veiculo');
+      sel.innerHTML = '<option value="">(nenhum)</option>' +
+        veiculos.map((v) => `<option value="${esc(v.placa)}">${esc(v.placa)} - ${esc(v.modelo || '')}</option>`).join('');
+    }
+
+    async function carregar() {
+      try {
+        const lista = await apiGet('/api/motoristas');
+        document.getElementById('tabela').innerHTML = lista.length ? lista.map((m) => `
+          <tr>
+            <td>${m.id_motorista}</td>
+            <td><b>${esc(m.nome)}</b></td>
+            <td>${esc(m.licenca || '-')}</td>
+            <td>${m.placa_veiculo ? esc(m.placa_veiculo) + (m.veiculo_modelo ? ' (' + esc(m.veiculo_modelo) + ')' : '') : '-'}</td>
+            <td class="acoes">
+              <button class="btn btn-ghost btn-mini" onclick='editar(${JSON.stringify(m)})'><i class="ti ti-pencil"></i></button>
+              <button class="btn-perigo btn-mini" onclick="excluir(${m.id_motorista})"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="5" class="vazio">Nenhum motorista cadastrado.</td></tr>';
+      } catch (e) { aviso(e.message, true); }
+    }
+
+    function novo() {
+      document.getElementById('form').reset();
+      document.getElementById('id').value = '';
+      document.getElementById('modal-titulo').textContent = 'Novo motorista';
+      abrirModal('modal');
+    }
+    function editar(m) {
+      document.getElementById('id').value = m.id_motorista;
+      document.getElementById('nome').value = m.nome || '';
+      document.getElementById('licenca').value = m.licenca || '';
+      document.getElementById('placa_veiculo').value = m.placa_veiculo || '';
+      document.getElementById('modal-titulo').textContent = 'Editar motorista';
+      abrirModal('modal');
+    }
+    async function excluir(id) {
+      if (!confirm('Excluir este motorista?')) return;
+      try { await apiDel('/api/motoristas/' + id); aviso('Motorista excluido.'); carregar(); }
+      catch (e) { aviso(e.message, true); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const dados = {
+        nome: document.getElementById('nome').value,
+        licenca: document.getElementById('licenca').value,
+        placa_veiculo: document.getElementById('placa_veiculo').value,
+      };
+      try {
+        if (id) await apiPut('/api/motoristas/' + id, dados);
+        else await apiPost('/api/motoristas', dados);
+        fecharModal('modal'); aviso('Salvo com sucesso!'); carregar();
+      } catch (e) { aviso(e.message, true); }
+    });
+  </script>
+</body>
+</html>

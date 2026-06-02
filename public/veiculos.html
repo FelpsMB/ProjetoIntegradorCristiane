@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoLogix - Veiculos</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.6.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar" id="topbar"></div>
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1><i class="ti ti-car" style="color:var(--verde);"></i> Veiculos</h1>
+        <p class="sub">Frota de caminhoes da GreenCycle</p>
+      </div>
+      <button class="btn" onclick="novo()"><i class="ti ti-plus"></i> Adicionar veiculo</button>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr><th>Placa</th><th>Modelo</th><th>Capacidade (kg)</th><th></th></tr></thead>
+        <tbody id="tabela"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="modal-fundo" id="modal">
+    <div class="modal">
+      <h2 id="modal-titulo">Novo veiculo</h2>
+      <form id="form">
+        <div class="campo"><label>Placa *</label><input id="placa" required placeholder="ABC1D23"></div>
+        <div class="campo"><label>Modelo</label><input id="modelo" placeholder="Caminhao VW Delivery"></div>
+        <div class="campo"><label>Capacidade de carga (kg)</label><input id="capacidade_carga" type="number" step="0.01" placeholder="8000"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-ghost" onclick="fecharModal('modal')">Cancelar</button>
+          <button type="submit" class="btn"><i class="ti ti-device-floppy"></i> Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/comum.js"></script>
+  <script>
+    if (exigirLogin()) { montarTopbar('veiculos.html'); carregar(); }
+    let editando = null; // placa em edicao (placa nao pode ser alterada)
+
+    async function carregar() {
+      try {
+        const lista = await apiGet('/api/veiculos');
+        document.getElementById('tabela').innerHTML = lista.length ? lista.map((v) => `
+          <tr>
+            <td><b>${esc(v.placa)}</b></td>
+            <td>${esc(v.modelo || '-')}</td>
+            <td>${v.capacidade_carga ? Number(v.capacidade_carga).toLocaleString('pt-br') : '-'}</td>
+            <td class="acoes">
+              <button class="btn btn-ghost btn-mini" onclick='editar(${JSON.stringify(v)})'><i class="ti ti-pencil"></i></button>
+              <button class="btn-perigo btn-mini" onclick="excluir('${esc(v.placa)}')"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>`).join('') : '<tr><td colspan="4" class="vazio">Nenhum veiculo cadastrado.</td></tr>';
+      } catch (e) { aviso(e.message, true); }
+    }
+
+    function novo() {
+      editando = null;
+      document.getElementById('form').reset();
+      document.getElementById('placa').disabled = false;
+      document.getElementById('modal-titulo').textContent = 'Novo veiculo';
+      abrirModal('modal');
+    }
+    function editar(v) {
+      editando = v.placa;
+      document.getElementById('placa').value = v.placa;
+      document.getElementById('placa').disabled = true; // placa e a chave, nao muda
+      document.getElementById('modelo').value = v.modelo || '';
+      document.getElementById('capacidade_carga').value = v.capacidade_carga || '';
+      document.getElementById('modal-titulo').textContent = 'Editar veiculo';
+      abrirModal('modal');
+    }
+    async function excluir(placa) {
+      if (!confirm('Excluir este veiculo?')) return;
+      try { await apiDel('/api/veiculos/' + encodeURIComponent(placa)); aviso('Veiculo excluido.'); carregar(); }
+      catch (e) { aviso(e.message, true); }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const dados = {
+        placa: document.getElementById('placa').value,
+        modelo: document.getElementById('modelo').value,
+        capacidade_carga: document.getElementById('capacidade_carga').value,
+      };
+      try {
+        if (editando) await apiPut('/api/veiculos/' + encodeURIComponent(editando), dados);
+        else await apiPost('/api/veiculos', dados);
+        fecharModal('modal'); aviso('Salvo com sucesso!'); carregar();
+      } catch (e) { aviso(e.message, true); }
+    });
+  </script>
+</body>
+</html>
